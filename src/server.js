@@ -3,7 +3,7 @@ import { DB, connectToDB } from "./db.js"; //need to add *.js because we enabled
 const app = express();
 app.use(express.json());
 
-app.get("/api/articles/:name/comments", async (req, res) => {
+app.get("/api/articles/:name", async (req, res) => {
   const { name } = req.params;
   const article = await DB.collection("articles").findOne({ name });
 
