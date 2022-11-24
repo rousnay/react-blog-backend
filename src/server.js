@@ -21,7 +21,8 @@ app.put("/api/articles/:name/upvotes", async (req, res) => {
 
   if (article) {
     await articles.updateOne({ name }, { $inc: { upvotes: 1 } });
-    res.json(`The ${name} article now has ${article.upvotes + 1} upvotes!!`);
+    const updatedArticle = await articles.findOne({ name });
+    res.json(updatedArticle);
   } else {
     res.sendStatus(404);
   }
@@ -38,7 +39,8 @@ app.post("/api/articles/:name/comments", async (req, res) => {
       { name },
       { $push: { comments: { postedBy, text } } }
     );
-    res.json(article.comments);
+    const updatedArticle = await articles.findOne({ name });
+    res.json(updatedArticle);
   } else {
     res.sendStatus(404);
   }
