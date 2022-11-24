@@ -1,58 +1,52 @@
 import express from "express";
-import { MongoClient } from "mongodb";
-
+import { DB, connectToDB } from "./db.js"; //need to add *.js because we enabled module in package.json file.
 const app = express();
 app.use(express.json());
 
 app.get("/api/articles/:name/comments", async (req, res) => {
   const { name } = req.params;
+  const article = await DB.collection("articles").findOne({ name });
 
-  const client = new MongoClient("mongodb://127.0.0.1:27017");
-  await client.connect();
-  const db = client.db("react-blog-db");
-  const articles = db.collection("articles");
-  const articleByName = await articles.findOne({ name });
-
-  if (articleByName) {
-    res.json(articleByName);
+  if (article) {
+    res.json(article);
   } else {
-    res.send(`The article dosn\'t exist!`);
+    res.sendStatus(404);
   }
 });
 
 app.put("/api/articles/:name/upvotes", async (req, res) => {
   const { name } = req.params;
-
-  const client = new MongoClient("mongodb://127.0.0.1:27017");
-  await client.connect();
-  const db = client.db("react-blog-db");
-  const articles = db.collection("articles");
-  const articleByName = await articles.findOne({ name });
-
-  if (articleByName) {
-    await articles.updateOne({ name }, { $inc: { upvotes: 1 } });
-    res.json(
-      `The ${name} article now has ${articleByName.upvotes + 1} upvotes!!`
-    );
-  } else {
-    res.send(`The article dosn\'t exist!`);
-  }
-});
-
-app.post("/api/articles/:name/comments", (req, res) => {
-  const { name } = req.params;
-  const { postedBy, text } = req.body;
-
-  const article = articlesInfo.find((a) => a.name === name);
+  const articles = DB.collection("articles");
+  const article = await articles.findOne({ name });
 
   if (article) {
-    article.comments.push({ postedBy, text });
-    res.send(article.comments);
+    await articles.updateOne({ name }, { $inc: { upvotes: 1 } });
+    res.json(`The ${name} article now has ${article.upvotes + 1} upvotes!!`);
   } else {
-    res.send("The article dosn't exist!");
+    res.sendStatus(404);
   }
 });
 
-app.listen(8000, () => {
-  console.log("Server is listening to port 8000");
+app.post("/api/articles/:name/comments", async (req, res) => {
+  const { name } = req.params;
+  const { postedBy, text } = req.body;
+  const articles = DB.collection("articles");
+  const article = await articles.findOne({ name });
+
+  if (article) {
+    await articles.updateOne(
+      { name },
+      { $push: { comments: { postedBy, text } } }
+    );
+    res.json(article.comments);
+  } else {
+    res.sendStatus(404);
+  }
+});
+
+connectToDB(() => {
+  console.log("Successfully connect to the database!");
+  app.listen(8000, () => {
+    console.log("Server is listening to port 8000");
+  });
 });
