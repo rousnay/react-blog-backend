@@ -1,7 +1,31 @@
+import fs from "fs";
+import admin from "firebase-admin";
 import express from "express";
 import { DB, connectToDB } from "./db.js"; //need to add *.js because we enabled module in package.json file.
+
+const credentials = JSON.parse(fs.readFileSync("credentials.json"));
+
+admin.initializeApp({
+  credential: admin.credential.cert(credentials),
+});
+
 const app = express();
 app.use(express.json());
+app.use(async (req, res, next) => {
+  const { authToken } = req.headers;
+
+  console.log("token", authToken);
+  if (authToken) {
+    try {
+      req.user = await admin.auth().verifyIdToken(authToken);
+
+      console.log("use", user.user);
+    } catch (e) {
+      res.sendStatus(400);
+    }
+  }
+  next();
+});
 
 app.get("/api/articles/:name", async (req, res) => {
   const { name } = req.params;
