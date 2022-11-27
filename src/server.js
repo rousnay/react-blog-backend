@@ -12,14 +12,10 @@ admin.initializeApp({
 const app = express();
 app.use(express.json());
 app.use(async (req, res, next) => {
-  const { authToken } = req.headers;
-
-  console.log("token", authToken);
-  if (authToken) {
+  const { authtoken } = req.headers;
+  if (authtoken) {
     try {
-      req.user = await admin.auth().verifyIdToken(authToken);
-
-      console.log("use", user.user);
+      req.user = await admin.auth().verifyIdToken(authtoken);
     } catch (e) {
       res.sendStatus(400);
     }
@@ -27,11 +23,22 @@ app.use(async (req, res, next) => {
   next();
 });
 
+app.use((req, res, next) => {
+  if (req.user) {
+    next();
+  } else {
+    res.sendStatus(401);
+  }
+});
+
 app.get("/api/articles/:name", async (req, res) => {
   const { name } = req.params;
-  const article = await DB.collection("articles").findOne({ name });
+  const { uid } = req.user;
 
+  const article = await DB.collection("articles").findOne({ name });
   if (article) {
+    const upvoteIds = article.upvoteIds || [];
+    article.canUpvote = uid && !upvoteIds.includes(uid);
     res.json(article);
   } else {
     res.sendStatus(404);
@@ -40,15 +47,25 @@ app.get("/api/articles/:name", async (req, res) => {
 
 app.put("/api/articles/:name/upvotes", async (req, res) => {
   const { name } = req.params;
+  const { uid } = req.user;
   const articles = DB.collection("articles");
   const article = await articles.findOne({ name });
 
   if (article) {
-    await articles.updateOne({ name }, { $inc: { upvotes: 1 } });
-    const updatedArticle = await articles.findOne({ name });
-    res.json(updatedArticle);
+    const upvoteIds = article.upvoteIds || [];
+    const canUpvote = uid && !upvoteIds.includes(uid);
+    if (canUpvote) {
+      await articles.updateOne(
+        { name },
+        { $inc: { upvotes: 1 }, $push: { upvoteIds: uid } }
+      );
+      const updatedArticle = await articles.findOne({ name });
+      res.json(updatedArticle);
+    } else {
+      console.log("Already upvoted!");
+    }
   } else {
-    res.sendStatus(404);
+    res.send("That article doesn't exist");
   }
 });
 
