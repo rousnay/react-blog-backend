@@ -71,16 +71,21 @@ app.put("/api/articles/:name/upvotes", async (req, res) => {
 
 app.post("/api/articles/:name/comments", async (req, res) => {
   const { name } = req.params;
-  const { postedBy, text } = req.body;
+  const { email, uid } = req.user;
+  const { text } = req.body;
+
   const articles = DB.collection("articles");
   const article = await articles.findOne({ name });
 
   if (article) {
     await articles.updateOne(
       { name },
-      { $push: { comments: { postedBy, text } } }
+      { $push: { comments: { postedBy: email, text } } }
     );
     const updatedArticle = await articles.findOne({ name });
+
+    const upvoteIds = updatedArticle.upvoteIds || [];
+    updatedArticle.canUpvote = uid && !upvoteIds.includes(uid);
     res.json(updatedArticle);
   } else {
     res.sendStatus(404);
